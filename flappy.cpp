@@ -34,24 +34,27 @@ int main()
     Image bgnd2("assets/bg1.png", 288, 0);
 
     bool quit = false;
-    unsigned delta{}, lastFrame{};
+    unsigned sTicks = SDL_GetTicks(), frame{};
     while (!quit) {
-        // calculate delta time vars
-        unsigned currentFrame = SDL_GetTicks();
-        delta = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+        frame++;
+        unsigned ticks = SDL_GetTicks() - sTicks;
 
-        bgnd.x -= delta / 2;
-        bgnd2.x -= delta / 2;
+        if (!(frame % 10)) { bgnd.x--; bgnd2.x--; }
         if (bgnd.x < -288) bgnd.x = 287;
         if (bgnd2.x < -288) bgnd2.x = 287;
 
         render(sdl, &bgnd, &bgnd2);
 
         for (SDL_Event e; SDL_PollEvent(&e); ) {
-            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
+            if ((e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) || e.type == SDL_QUIT)
                 quit = true;
         }
+
+        frame = frame > 60 ? 0 : frame;
+        // keep framerate at 60
+        if (ticks < 1000 / 60)
+            SDL_Delay(1000 / 60 - ticks);
+
         SDL_Flip(sdl);
         SDL_FillRect(sdl, nullptr, 0x0);
     }
