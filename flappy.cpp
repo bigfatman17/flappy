@@ -34,10 +34,9 @@ int main()
     Image bgnd2("assets/bg1.png", 288, 0);
 
     bool quit = false;
-    unsigned sTicks = SDL_GetTicks(), frame{};
+    unsigned frame{};
     while (!quit) {
         frame++;
-        unsigned ticks = SDL_GetTicks() - sTicks;
 
         if (!(frame % 10)) { bgnd.x--; bgnd2.x--; }
         if (bgnd.x < -288) bgnd.x = 287;
@@ -51,9 +50,6 @@ int main()
         }
 
         frame = frame > 60 ? 0 : frame;
-        // keep framerate at 60
-        if (ticks < 1000 / 60)
-            SDL_Delay(1000 / 60 - ticks);
 
         SDL_Flip(sdl);
         SDL_FillRect(sdl, nullptr, 0x0);
