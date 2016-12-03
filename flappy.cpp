@@ -8,12 +8,9 @@ struct Image
 {
     SDL_Surface* image;
     short x, y;
-    short unsigned width, height;
-    Image(std::string file, short x, short y, short unsigned width, short unsigned height) { image = SDL_DisplayFormat(IMG_Load(file.c_str()));
-                                                                                             this->x = x;
-                                                                                             this->y = y;
-                                                                                             this->width = width;
-                                                                                             this->height = height; }
+    Image(std::string file, short x, short y) { image = SDL_DisplayFormat(IMG_Load(file.c_str()));
+                                                this->x = x;
+                                                this->y = y; }
     ~Image() { SDL_FreeSurface(image); }
 };
 template<typename T, typename... R>
@@ -25,7 +22,7 @@ static void render(SDL_Surface* sdl, T* i, R&&... r)
 template<>
 inline void render<Image>(SDL_Surface* sdl, Image* i)
 {
-    SDL_Rect r{i->x, i->y, i->width, i->height};
+    SDL_Rect r{i->x, i->y, 0, 0};
     SDL_BlitSurface(i->image, nullptr, sdl, &r);
 }
 
@@ -33,8 +30,8 @@ int main()
 {
     SDL_Surface* sdl = SDL_SetVideoMode(WinWidth, WinHeight, 32, 0);
 
-    Image bgnd("assets/bg1.png", 0, 0, 288, 512);
-    Image bgnd2("assets/bg1.png", 288, 0, 288, 512);
+    Image bgnd("assets/bg1.png", 0, 0);
+    Image bgnd2("assets/bg1.png", 288, 0);
 
     bool quit = false;
     unsigned delta{}, lastFrame{};
