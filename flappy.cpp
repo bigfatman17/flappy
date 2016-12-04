@@ -8,7 +8,7 @@ constexpr unsigned WinWidth = 288, WinHeight = 512;
 // NOTE: Despite the names, these variables represent the frame number when their items should move (except for PipeSpacing).
 // This means that by lowering these values, the item will traverse faster.
 // Everything is based on 60 frames per second.
-constexpr unsigned BgndVelocity = 10, BirdAcceleration = 5, PipeVelocity = 2, PipeSpacing = 100;
+constexpr unsigned BgndVelocity = 10, BirdAcceleration = 5, PipeVelocity = 2, PipeSpacing = 100, PipeBounds = 200;
 
 struct Image
 {
@@ -46,18 +46,17 @@ struct Bird
     void update(unsigned frame) { if (!(frame % BirdAcceleration)) { vel++; img->y += vel; } }
 };
 
-template<unsigned bounds>
 struct Pipe
 {
     Image* up, *down;
-    Pipe(Image* up, Image* down) { this->up = up; this->down = down; this->up->y = WinHeight; this->down->y = WinHeight; }
+    Pipe(Image* up, Image* down) { this->up = up; this->down = down; this->up->y = WinHeight; this->down->y = -this->down->image->h; }
     void update(unsigned frame)
     {
         if (!(frame % PipeVelocity)) { up->x--; down->x--; }
         if (up->x < (int)-WinWidth / 2) {
             // generate new position
             up->x = WinWidth; down->x = WinWidth;
-            unsigned pos = std::rand() % ((WinHeight - bounds) - bounds) + bounds;
+            unsigned pos = std::rand() % ((WinHeight - PipeBounds) - PipeBounds) + PipeBounds;
             up->y = pos;
             down->y = pos - PipeSpacing - down->image->h;
         }
@@ -74,30 +73,40 @@ int main()
     Image bgnd2("assets/bg1.png", 288, 0);
     Bird bird(new Image("assets/bird2.png"));
 
-    Pipe<200> pipe(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
+    Pipe pipe(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
     pipe.up->x = pipe.up->image->w; pipe.down->x = pipe.down->image->w;
-    Pipe<200> pipe2(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
+    Pipe pipe2(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
     pipe2.up->x = pipe2.up->image->w + WinWidth / 2; pipe2.down->x = pipe2.down->image->w + WinWidth / 2;
-    Pipe<200> pipe3(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
+    Pipe pipe3(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
     pipe3.up->x = pipe3.up->image->w + WinWidth; pipe3.down->x = pipe3.down->image->w + WinWidth;
 
-    bool quit = false;
+    //collision checking
+    auto coll = [](Bird bird, Pipe pipe)
+    {
+        return bird.img->x + bird.img->image->w > pipe.up->x && bird.img->x < pipe.up->x + pipe.up->image->w
+            && (bird.img->y < pipe.down->y + pipe.down->image->h || bird.img->y + bird.img->image->h > pipe.up->y);
+    };
+
+    bool quit{}, lose{};
     unsigned frame{};
     while (!quit) {
         frame++;
 
-        if (!(frame % BgndVelocity)) { bgnd.x--; bgnd2.x--; }
-        if (bgnd.x < -bgnd.image->w) bgnd.x = WinWidth - 1;
-        if (bgnd2.x < -bgnd2.image->w) bgnd2.x = WinWidth - 1;
         bird.update(frame);
-        pipe.update(frame); pipe2.update(frame); pipe3.update(frame);
+        if (!lose) {
+            if (!(frame % BgndVelocity)) { bgnd.x--; bgnd2.x--; }
+            if (bgnd.x < -bgnd.image->w) bgnd.x = WinWidth - 1;
+            if (bgnd2.x < -bgnd2.image->w) bgnd2.x = WinWidth - 1;
+            pipe.update(frame); pipe2.update(frame); pipe3.update(frame);
+            lose = coll(bird, pipe) || coll(bird, pipe2) || coll(bird, pipe3);
+        }
 
-        render(sdl, &bgnd, &bgnd2, bird.img, pipe.up, pipe.down, pipe2.up, pipe2.down, pipe3.up, pipe3.down);
+        render(sdl, &bgnd, &bgnd2, pipe.up, pipe.down, pipe2.up, pipe2.down, pipe3.up, pipe3.down, bird.img);
 
         for (SDL_Event e; SDL_PollEvent(&e); ) {
             if ((e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) || e.type == SDL_QUIT)
                 quit = true;
-            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE)
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE && !lose)
                 bird.vel = -10;
         }
 
