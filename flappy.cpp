@@ -5,7 +5,10 @@
 #include <SDL/SDL_image.h>
 
 constexpr unsigned WinWidth = 288, WinHeight = 512;
-constexpr unsigned BgndVelocity = -1, BirdAcceleration = 1, PipeVelocity = -1, PipeSpacing = 100;
+// NOTE: Despite the names, these variables represent the frame number when their items should move (except for PipeSpacing).
+// This means that by lowering these values, the item will traverse faster.
+// Everything is based on 60 frames per second.
+constexpr unsigned BgndVelocity = 10, BirdAcceleration = 5, PipeVelocity = 2, PipeSpacing = 100;
 
 struct Image
 {
@@ -40,7 +43,7 @@ struct Bird
 
     Bird(Image* img) { this->img = img; }
 
-    void update(unsigned frame) { if (!(frame % 5)) { vel += BirdAcceleration; img->y += vel; } }
+    void update(unsigned frame) { if (!(frame % BirdAcceleration)) { vel++; img->y += vel; } }
 };
 
 template<unsigned bounds>
@@ -50,7 +53,7 @@ struct Pipe
     Pipe(Image* up, Image* down) { this->up = up; this->down = down; this->up->y = WinHeight; this->down->y = WinHeight; }
     void update(unsigned frame)
     {
-        if (!(frame % 2)) { up->x += PipeVelocity; down->x += PipeVelocity; }
+        if (!(frame % PipeVelocity)) { up->x--; down->x--; }
         if (up->x + up->image->w < -up->image->w * 1.5) {
             // generate new position
             up->x = WinWidth; down->x = WinWidth;
@@ -83,7 +86,7 @@ int main()
     while (!quit) {
         frame++;
 
-        if (!(frame % 10)) { bgnd.x += BgndVelocity; bgnd2.x += BgndVelocity; }
+        if (!(frame % BgndVelocity)) { bgnd.x--; bgnd2.x--; }
         if (bgnd.x < -bgnd.image->w) bgnd.x = WinWidth - 1;
         if (bgnd2.x < -bgnd2.image->w) bgnd2.x = WinWidth - 1;
         bird.update(frame);
