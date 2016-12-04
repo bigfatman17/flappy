@@ -1,8 +1,11 @@
+#include <cstdlib>
+#include <ctime>
 #include <string>
 #include <SDL/SDL.h>
 #include <SDL/SDL_image.h>
 
 constexpr unsigned WinWidth = 288, WinHeight = 512;
+constexpr unsigned BgndVelocity = -1, BirdAcceleration = 1, PipeVelocity = -1, PipeSpacing = 100;
 
 struct Image
 {
@@ -30,36 +33,63 @@ inline void render<Image>(SDL_Surface* sdl, const Image* i)
     SDL_BlitSurface(i->image, nullptr, sdl, &r);
 }
 
-template<unsigned acc>
 struct Bird
 {
     Image* img;
     unsigned vel{};
 
-    Bird(Image* img) { *this->img = *img; }
+    Bird(Image* img) { this->img = img; }
 
-    void update(unsigned frame) { if (!(frame % 5)) { vel += acc; img->y += vel; } }
+    void update(unsigned frame) { if (!(frame % 5)) { vel += BirdAcceleration; img->y += vel; } }
+};
+
+template<unsigned bounds>
+struct Pipe
+{
+    Image* up, *down;
+    Pipe(Image* up, Image* down) { this->up = up; this->down = down; this->up->y = WinHeight; this->down->y = WinHeight; }
+    void update(unsigned frame)
+    {
+        if (!(frame % 2)) { up->x += PipeVelocity; down->x += PipeVelocity; }
+        if (up->x + up->image->w < -up->image->w * 1.5) {
+            // generate new position
+            up->x = WinWidth; down->x = WinWidth;
+            unsigned pos = std::rand() % ((WinHeight - bounds) - bounds) + bounds;
+            up->y = pos;
+            down->y = pos - PipeSpacing - down->image->h;
+        }
+    }
 };
 
 int main()
 {
     SDL_Surface* sdl = SDL_SetVideoMode(WinWidth, WinHeight, 32, 0);
 
+    std::srand(std::time(nullptr));
+
     Image bgnd("assets/bg1.png", 0, 0);
     Image bgnd2("assets/bg1.png", 288, 0);
-    Bird<1> bird(new Image("assets/bird2.png"));
+    Bird bird(new Image("assets/bird2.png"));
+
+    Pipe<200> pipe(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
+    pipe.up->x = WinWidth; pipe.down->x = WinWidth;
+    Pipe<200> pipe2(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
+    pipe2.up->x = WinWidth + WinWidth / 2; pipe2.down->x = WinWidth + WinWidth / 2;
+    Pipe<200> pipe3(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
+    pipe3.up->x = WinWidth * 2; pipe3.down->x = WinWidth * 2;
 
     bool quit = false;
     unsigned frame{};
     while (!quit) {
         frame++;
 
-        if (!(frame % 10)) { bgnd.x--; bgnd2.x--; }
-        if (bgnd.x < -288) bgnd.x = 287;
-        if (bgnd2.x < -288) bgnd2.x = 287;
+        if (!(frame % 10)) { bgnd.x += BgndVelocity; bgnd2.x += BgndVelocity; }
+        if (bgnd.x < -bgnd.image->w) bgnd.x = WinWidth - 1;
+        if (bgnd2.x < -bgnd2.image->w) bgnd2.x = WinWidth - 1;
         bird.update(frame);
+        pipe.update(frame); pipe2.update(frame); pipe3.update(frame);
 
-        render(sdl, &bgnd, &bgnd2, bird.img);
+        render(sdl, &bgnd, &bgnd2, bird.img, pipe.up, pipe.down, pipe2.up, pipe2.down, pipe3.up, pipe3.down);
 
         for (SDL_Event e; SDL_PollEvent(&e); ) {
             if ((e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) || e.type == SDL_QUIT)
