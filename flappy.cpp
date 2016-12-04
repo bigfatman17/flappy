@@ -54,7 +54,7 @@ struct Pipe
     void update(unsigned frame)
     {
         if (!(frame % PipeVelocity)) { up->x--; down->x--; }
-        if (up->x + up->image->w < -up->image->w * 1.5) {
+        if (up->x < (int)-WinWidth / 2) {
             // generate new position
             up->x = WinWidth; down->x = WinWidth;
             unsigned pos = std::rand() % ((WinHeight - bounds) - bounds) + bounds;
@@ -75,11 +75,11 @@ int main()
     Bird bird(new Image("assets/bird2.png"));
 
     Pipe<200> pipe(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
-    pipe.up->x = WinWidth; pipe.down->x = WinWidth;
+    pipe.up->x = pipe.up->image->w; pipe.down->x = pipe.down->image->w;
     Pipe<200> pipe2(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
-    pipe2.up->x = WinWidth + WinWidth / 2; pipe2.down->x = WinWidth + WinWidth / 2;
+    pipe2.up->x = pipe2.up->image->w + WinWidth / 2; pipe2.down->x = pipe2.down->image->w + WinWidth / 2;
     Pipe<200> pipe3(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
-    pipe3.up->x = WinWidth * 2; pipe3.down->x = WinWidth * 2;
+    pipe3.up->x = pipe3.up->image->w + WinWidth; pipe3.down->x = pipe3.down->image->w + WinWidth;
 
     bool quit = false;
     unsigned frame{};
