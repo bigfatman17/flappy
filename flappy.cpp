@@ -5,8 +5,8 @@
 #include <SDL/SDL_image.h>
 
 constexpr unsigned WinWidth = 288, WinHeight = 512;
-// NOTE: Despite the names, these variables represent the frame number when their items should move (except for PipeSpacing).
-// This means that by lowering these values, the item will traverse faster.
+// NOTE: Despite the names, these variables represent the frame number when their items should move (except for PipeSpacing and PipeBounds).
+// Thus, by lowering these values, the item will traverse faster.
 // Everything is based on 60 frames per second.
 static constexpr unsigned BgndVelocity = 10, BirdAcceleration = 5, PipeVelocity = 2, PipeSpacing = 100, PipeBounds = 200;
 
@@ -70,7 +70,7 @@ int main()
     std::srand(std::time(nullptr));
 
     Image bgnd("assets/bg1.png", 0, 0);
-    Image bgnd2("assets/bg1.png", 288, 0);
+    Image bgnd2("assets/bg1.png", WinWidth, 0);
     Bird bird(new Image("assets/bird2.png"));
 
     Pipe pipe(new Image("assets/pipeup.png"), new Image("assets/pipedown.png"));
