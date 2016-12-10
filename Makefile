@@ -8,7 +8,7 @@ CC = g++
 COMPILER_FLAGS = -Wall -Wextra
 
 #LINKER_FLAGS specifies the libraries we're linking against
-LINKER_FLAGS = -lSDL -lSDL_image
+LINKER_FLAGS = -lSDL2 -lSDL2_image
 
 #OBJ_NAME specifies the name of our exectuable
 OBJ_NAME = game
