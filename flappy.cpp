@@ -1,3 +1,4 @@
+#include <memory>
 #include <cstdlib>
 #include <ctime>
 #include <string>
@@ -10,62 +11,55 @@ constexpr unsigned WinWidth = 288, WinHeight = 512;
 // Everything is based on 60 frames per second.
 static constexpr unsigned BgndVelocity = 10, BirdAcceleration = 5, PipeVelocity = 2, PipeSpacing = 100, PipeBounds = 200;
 
-class Texture
-{
-    SDL_Texture* s;
-public:
-    SDL_Texture* S() const { return s; }
-    Texture(SDL_Renderer* sdl, std::string file) { s = SDL_CreateTextureFromSurface(sdl, IMG_Load(file.c_str())); }
-    Texture(const Texture& o) { s = o.s; }
-    Texture(Texture&& o)      { s = o.s; o.s = nullptr; }
-    Texture& operator=(Texture o) { std::swap(s, o.s); return *this; }
-    ~Texture() { SDL_DestroyTexture(s); }
-};
 struct Image
 {
-    Texture image;
+    std::shared_ptr<SDL_Texture> image;
     short x, y;
     unsigned short w, h;
     Image(SDL_Renderer* sdl, std::string file,
           unsigned short w, unsigned short h,
-          short x = 0, short y = 0) : image(sdl, file) { this->w = w; this->h = h; this->x = x; this->y = y; }
+          short x = 0, short y = 0)
+        : image(SDL_CreateTextureFromSurface(sdl, IMG_Load(file.c_str())), [](SDL_Texture* x) { SDL_DestroyTexture(x); })
+    {
+        this->w = w; this->h = h; this->x = x; this->y = y;
+    }
 };
 template<typename T, typename... R>
-static void render(SDL_Renderer* sdl, const T* i, R&&... r)
+static void render(SDL_Renderer* sdl, T i, R&&... r)
 {
     render(sdl, i);
     render(sdl, std::forward<R>(r)...);
 }
 template<>
-inline void render<Image>(SDL_Renderer* sdl, const Image* i)
+inline void render<Image>(SDL_Renderer* sdl, Image i)
 {
-    SDL_Rect r{i->x, i->y, i->w, i->h};
-    SDL_RenderCopy(sdl, i->image.S(), nullptr, &r);
+    SDL_Rect r{i.x, i.y, i.w, i.h};
+    SDL_RenderCopy(sdl, i.image.get(), nullptr, &r);
 }
 
 struct Bird
 {
-    Image* img;
+    Image img;
     unsigned vel{};
 
-    Bird(Image* img) { this->img = img; }
+    Bird(Image img) : img(img) {}
 
-    void update(unsigned frame) { if (!(frame % BirdAcceleration)) { vel++; img->y += vel; } }
+    void update(unsigned frame) { if (!(frame % BirdAcceleration)) { vel++; img.y += vel; } }
 };
 
 struct Pipe
 {
-    Image* up, *down;
-    Pipe(Image* up, Image* down) { this->up = up; this->down = down; this->up->y = WinHeight; this->down->y = -this->down->h; }
+    Image up, down;
+    Pipe(Image up, Image down) : up(up), down(down) { this->up.y = WinHeight; this->down.y = -this->down.h; }
     void update(unsigned frame)
     {
-        if (!(frame % PipeVelocity)) { up->x--; down->x--; }
-        if (up->x < (int)-WinWidth / 2) {
+        if (!(frame % PipeVelocity)) { up.x--; down.x--; }
+        if (up.x < (int)-WinWidth / 2) {
             // generate new position
-            up->x = WinWidth; down->x = WinWidth;
+            up.x = WinWidth; down.x = WinWidth;
             unsigned pos = std::rand() % ((WinHeight - PipeBounds) - PipeBounds) + PipeBounds;
-            up->y = pos;
-            down->y = pos - PipeSpacing - down->h;
+            up.y = pos;
+            down.y = pos - PipeSpacing - down.h;
         }
     }
 };
@@ -79,20 +73,18 @@ int main()
 
     Image bgnd(sdl, "assets/bg1.png", 288, 512);
     Image bgnd2(sdl, "assets/bg1.png", 288, 512, WinWidth, 0);
-    Bird bird(new Image(sdl, "assets/bird2.png", 34, 24, WinWidth / 2 - 34 / 2, WinHeight / 2 - 24 / 2));
+    Bird bird(Image(sdl, "assets/bird2.png", 34, 24, WinWidth / 2 - 34 / 2, WinHeight / 2 - 24 / 2));
 
-    Pipe pipe(new Image(sdl, "assets/pipeup.png", 52, 320), new Image(sdl, "assets/pipedown.png", 52, 320));
-    pipe.up->x = pipe.up->w; pipe.down->x = pipe.down->w;
-    Pipe pipe2(new Image(sdl, "assets/pipeup.png", 52, 320), new Image(sdl, "assets/pipedown.png", 52, 320));
-    pipe2.up->x = pipe2.up->w + WinWidth / 2; pipe2.down->x = pipe2.down->w + WinWidth / 2;
-    Pipe pipe3(new Image(sdl, "assets/pipeup.png", 52, 320), new Image(sdl, "assets/pipedown.png", 52, 320));
-    pipe3.up->x = pipe3.up->w + WinWidth; pipe3.down->x = pipe3.down->w + WinWidth;
+    Pipe pipe(Image(sdl, "assets/pipeup.png", 52, 320), Image(sdl, "assets/pipedown.png", 52, 320)), pipe2 = pipe, pipe3 = pipe;
+    pipe.up.x = pipe.up.w; pipe.down.x = pipe.down.w;
+    pipe2.up.x = pipe2.up.w + WinWidth / 2; pipe2.down.x = pipe2.down.w + WinWidth / 2;
+    pipe3.up.x = pipe3.up.w + WinWidth; pipe3.down.x = pipe3.down.w + WinWidth;
 
     //collision checking
     auto coll = [](Bird bird, Pipe pipe)
     {
-        return bird.img->x + bird.img->w > pipe.up->x && bird.img->x < pipe.up->x + pipe.up->w
-            && (bird.img->y < pipe.down->y + pipe.down->h || bird.img->y + bird.img->h > pipe.up->y);
+        return bird.img.x + bird.img.w > pipe.up.x && bird.img.x < pipe.up.x + pipe.up.w
+            && (bird.img.y < pipe.down.y + pipe.down.h || bird.img.y + bird.img.h > pipe.up.y);
     };
 
     bool quit{}, lose{};
@@ -110,7 +102,7 @@ int main()
             lose = coll(bird, pipe) || coll(bird, pipe2) || coll(bird, pipe3);
         }
 
-        render(sdl, &bgnd, &bgnd2, pipe.up, pipe.down, pipe2.up, pipe2.down, pipe3.up, pipe3.down, bird.img);
+        render(sdl, bgnd, bgnd2, pipe.up, pipe.down, pipe2.up, pipe2.down, pipe3.up, pipe3.down, bird.img);
 
         for (SDL_Event e; SDL_PollEvent(&e); ) {
             if ((e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) || e.type == SDL_QUIT)
