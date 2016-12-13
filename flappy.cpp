@@ -19,10 +19,8 @@ struct Image
     Image(SDL_Renderer* sdl, std::string file,
           unsigned short w, unsigned short h,
           short x = 0, short y = 0)
-        : image(SDL_CreateTextureFromSurface(sdl, IMG_Load(file.c_str())), [](SDL_Texture* x) { SDL_DestroyTexture(x); })
-    {
-        this->w = w; this->h = h; this->x = x; this->y = y;
-    }
+          : image(SDL_CreateTextureFromSurface(sdl, IMG_Load(file.c_str())), [](SDL_Texture* x) { SDL_DestroyTexture(x); }),
+            x(x), y(y), w(w), h(h) {}
 };
 template<typename T, typename... R>
 static void render(SDL_Renderer* sdl, T i, R&&... r)
