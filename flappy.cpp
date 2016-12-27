@@ -1,3 +1,5 @@
+#include <cmath>
+#include <chrono>
 #include <memory>
 #include <cstdlib>
 #include <ctime>
@@ -6,19 +8,17 @@
 #include <SDL2/SDL_image.h>
 
 constexpr unsigned WinWidth = 288, WinHeight = 512;
-// NOTE: Despite the names, these variables represent the frame number when their items should move (except for PipeSpacing and PipeBounds).
-// Thus, by lowering these values, the item will traverse faster.
-// Everything is based on 60 frames per second.
-static constexpr unsigned BgndVelocity = 10, BirdAcceleration = 5, PipeVelocity = 2, PipeSpacing = 100, PipeBounds = 200;
+static constexpr float BgndVelocity = 10, BirdAcceleration = 600, BirdJump = -200, PipeVelocity = 70,
+                       PipeSpacing = 100, PipeBounds = 200;
 
 struct Image
 {
     std::shared_ptr<SDL_Texture> image;
-    short x, y;
+    float x, y;
     unsigned short w, h;
     Image(SDL_Renderer* sdl, std::string file,
           unsigned short w, unsigned short h,
-          short x = 0, short y = 0)
+          float x = 0, float y = 0)
           : image(SDL_CreateTextureFromSurface(sdl, IMG_Load(file.c_str())), [](SDL_Texture* x) { SDL_DestroyTexture(x); }),
             x(x), y(y), w(w), h(h) {}
 };
@@ -31,31 +31,36 @@ static void render(SDL_Renderer* sdl, T i, R&&... r)
 template<>
 inline void render<Image>(SDL_Renderer* sdl, Image i)
 {
-    SDL_Rect r{i.x, i.y, i.w, i.h};
+    SDL_Rect r{static_cast<short>(i.x),
+               static_cast<short>(i.y),
+               i.w, i.h};
     SDL_RenderCopy(sdl, i.image.get(), nullptr, &r);
 }
 
 struct Bird
 {
     Image img;
-    unsigned vel{};
+    float vel{};
 
     Bird(Image img) : img(img) {}
 
-    void update(unsigned frame) { if (!(frame % BirdAcceleration)) { vel++; img.y += vel; } }
+    void update(float delta) {
+        vel += BirdAcceleration * delta;
+        img.y += vel * delta;
+    }
 };
 
 struct Pipe
 {
     Image up, down;
     Pipe(Image up, Image down) : up(up), down(down) { this->up.y = WinHeight; this->down.y = -this->down.h; }
-    void update(unsigned frame)
+    void update(float delta)
     {
-        if (!(frame % PipeVelocity)) { up.x--; down.x--; }
+        up.x -= PipeVelocity * delta; down.x -= PipeVelocity * delta;
         if (up.x < (int)-WinWidth / 2) {
             // generate new position
             up.x = WinWidth; down.x = WinWidth;
-            unsigned pos = std::rand() % ((WinHeight - PipeBounds) - PipeBounds) + PipeBounds;
+            float pos = std::fmod(std::rand(), ((WinHeight - PipeBounds) - PipeBounds)) + PipeBounds;
             up.y = pos;
             down.y = pos - PipeSpacing - down.h;
         }
@@ -70,7 +75,7 @@ int main()
     std::srand(std::time(nullptr));
 
     Image bgnd(sdl, "assets/bg1.png", 288, 512);
-    Image bgnd2(sdl, "assets/bg1.png", 288, 512, WinWidth, 0);
+    Image bgnd2 = bgnd; bgnd2.x = WinWidth;
     Bird bird(Image(sdl, "assets/bird2.png", 34, 24, WinWidth / 2 - 34 / 2, WinHeight / 2 - 24 / 2));
 
     Pipe pipe(Image(sdl, "assets/pipeup.png", 52, 320), Image(sdl, "assets/pipedown.png", 52, 320)), pipe2 = pipe, pipe3 = pipe;
@@ -86,17 +91,21 @@ int main()
     };
 
     bool quit{}, lose{};
-    unsigned frame{}, startTicks = SDL_GetTicks();
+    float delta{};
+    auto startTime = std::chrono::system_clock::now();
     while (!quit) {
-        unsigned ticks = SDL_GetTicks() - startTicks;
-        frame++;
+        SDL_RenderClear(sdl);
 
-        bird.update(frame);
+        auto now = std::chrono::system_clock::now();
+        delta = std::chrono::duration<float>(now - startTime).count();
+        startTime = now;
+
+        bird.update(delta);
         if (!lose) {
-            if (!(frame % BgndVelocity)) { bgnd.x--; bgnd2.x--; }
+            bgnd.x -= BgndVelocity * delta; bgnd2.x -= BgndVelocity * delta;
             if (bgnd.x < -bgnd.w) bgnd.x = WinWidth - 1;
             if (bgnd2.x < -bgnd2.w) bgnd2.x = WinWidth - 1;
-            pipe.update(frame); pipe2.update(frame); pipe3.update(frame);
+            pipe.update(delta); pipe2.update(delta); pipe3.update(delta);
             lose = coll(bird, pipe) || coll(bird, pipe2) || coll(bird, pipe3);
         }
 
@@ -106,17 +115,10 @@ int main()
             if ((e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) || e.type == SDL_QUIT)
                 quit = true;
             if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE && !lose)
-                bird.vel = -10;
-        }
-
-        frame = frame > 60 ? 0 : frame;
-        if (ticks < 1000 / 150) {
-            SDL_Delay(1000 / 150 - ticks);
-            startTicks = SDL_GetTicks();
+                bird.vel = -200;
         }
 
         SDL_RenderPresent(sdl);
-        SDL_RenderClear(sdl);
     }
 
     SDL_DestroyWindow(win); SDL_DestroyRenderer(sdl);
