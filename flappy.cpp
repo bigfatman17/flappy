@@ -60,7 +60,7 @@ struct Pipe
         if (up.x < (int)-WinWidth / 2) {
             // generate new position
             up.x = WinWidth; down.x = WinWidth;
-            float pos = std::fmod(std::rand(), ((WinHeight - PipeBounds) - PipeBounds)) + PipeBounds;
+            float pos = std::fmod(std::rand(), ((WinHeight - PipeBounds) - PipeSpacing)) + PipeBounds;
             up.y = pos;
             down.y = pos - PipeSpacing - down.h;
         }
